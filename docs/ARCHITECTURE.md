@@ -57,7 +57,7 @@ G0 breaks this trilemma through **hierarchical escalation**. Trivial or pattern-
 
 ### Tier -1: Heuristic Routing Gateway (`< 50 µs`)
 
-- **Implementation**: [`src/gevva0/rules.py`](file:///c:/code/demos/Gevva0/src/gevva0/rules.py) and [`RoutingRules/routing_rules.json`](file:///c:/code/demos/Gevva0/RoutingRules/routing_rules.json)
+- **Implementation**: [`src/gevva0/rules.py`](/src/gevva0/rules.py) and [`RoutingRules/routing_rules.json`](/RoutingRules/routing_rules.json)
 - **Engine Overhead**: Pre-compiled regex and keyword predicates executing in **< 50 microseconds**, requiring zero GPU memory and zero tensor operations.
 - **Hot-Reloadable**: Rule definitions are dynamically reloaded from disk without model restarts.
 - **Routing Actions**:
@@ -70,7 +70,7 @@ G0 breaks this trilemma through **hierarchical escalation**. Trivial or pattern-
 
 ### Tier 0: Topological Absorbing Markov Router (~16–25 ms p50)
 
-- **Implementation**: [`src/gevva0/tier0.py`](file:///c:/code/demos/Gevva0/src/gevva0/tier0.py) & [`src/gevva0/bridge.py`](file:///c:/code/demos/Gevva0/src/gevva0/bridge.py)
+- **Implementation**: [`src/gevva0/tier0.py`](/src/gevva0/tier0.py) & [`src/gevva0/bridge.py`](/src/gevva0/bridge.py)
 - **Model Backbone**: `EmbeddingGemma-2` ONNX (740M parameters, dense 768-dimensional vector space), loaded in GPU FP16 via ONNX Runtime / CUDA.
 - **Mathematical Foundation: Absorbing Markov Chains**:
   Rather than naive cosine similarity matching (which ignores topological manifold geometry), Tier 0 constructs an **Absorbing Markov Chain** over transient manifold landmarks $M$ and candidate absorbing sink states $C$:
@@ -107,7 +107,7 @@ G0 breaks this trilemma through **hierarchical escalation**. Trivial or pattern-
 
 ### Tier 1: Fast-Path Dynamic Sparse Logit Micro-Head (~31.5–37.5 ms p50)
 
-- **Implementation**: [`src/gevva0/sparse_logits.py`](file:///c:/code/demos/Gevva0/src/gevva0/sparse_logits.py) & [`src/gevva0/engine.py`](file:///c:/code/demos/Gevva0/src/gevva0/engine.py)
+- **Implementation**: [`src/gevva0/sparse_logits.py`](/src/gevva0/sparse_logits.py) & [`src/gevva0/engine.py`](/src/gevva0/engine.py)
 - **Model Backbone**: `Gemma 4 26B-A4B-it` MoE (`UD-Q4_K_XL`, 4B active parameters per token, 14 GB VRAM) running under `llama.cpp` CUDA backend with optional `mmproj-BF16` vision projection.
 - **Direct Logit Readout & Prefix Marginalization**:
   Extracts logits directly from the final token position without autoregressive token generation:
@@ -134,7 +134,7 @@ G0 breaks this trilemma through **hierarchical escalation**. Trivial or pattern-
 
 ### Tier 2: Hot-KV Bounded Chain-of-Thought (256 Tokens, ~1,445 ms p50)
 
-- **Implementation**: [`src/gevva0/engine.py`](file:///c:/code/demos/Gevva0/src/gevva0/engine.py) (`_run_cot_verification`)
+- **Implementation**: [`src/gevva0/engine.py`](/src/gevva0/engine.py) (`_run_cot_verification`)
 - **Trigger**: Activated when Tier 1 calibrated confidence falls below threshold ($C < 0.45$) or when Tier -1 issues `FORCE_COT`.
 - **Hot-KV Cache Continuation (`reuse_kv=True`)**:
   Rather than starting an autoregressive prefill from scratch, Tier 2 continues directly from the transformer KV-cache populated during Tier 1's forward pass. This eliminates redundant context ingestion, saving 20–35% of prefill time on long prompts.
@@ -149,7 +149,7 @@ G0 breaks this trilemma through **hierarchical escalation**. Trivial or pattern-
 
 ## 3. High-Speed Game Loop Bridge (`gevva0.bridge`)
 
-The **Universal Decision Bridge** ([`src/gevva0/bridge.py`](file:///c:/code/demos/Gevva0/src/gevva0/bridge.py)) exposes G0's cascading engine to 60 FPS real-time game loops, interactive robotics, and agentic event dispatchers:
+The **Universal Decision Bridge** ([`src/gevva0/bridge.py`](/src/gevva0/bridge.py)) exposes G0's cascading engine to 60 FPS real-time game loops, interactive robotics, and agentic event dispatchers:
 
 ```mermaid
 sequenceDiagram
@@ -190,7 +190,7 @@ sequenceDiagram
 
 ## 5. Benchmark Performance: JevBench & Decision Index 0.3
 
-Complete empirical report: [`docs/benchmarks/BENCHMARK_LATEST_DECISION_INDEX_03_AND_JEVBENCH.md`](file:///c:/code/demos/Gevva0/docs/benchmarks/BENCHMARK_LATEST_DECISION_INDEX_03_AND_JEVBENCH.md)
+Complete empirical report: [`docs/benchmarks/BENCHMARK_LATEST_DECISION_INDEX_03_AND_JEVBENCH.md`](/docs/benchmarks/BENCHMARK_LATEST_DECISION_INDEX_03_AND_JEVBENCH.md)
 
 ### JevBench v1.6.1 / v1.4.2.2 ($N=240$) Summary
 

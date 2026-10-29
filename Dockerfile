@@ -16,7 +16,7 @@ WORKDIR /app
 
 # Install Python dependencies using pre-built CUDA wheels for llama-cpp-python
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir --break-system-packages -r requirements-linux.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
 COPY . /app
 RUN chmod +x /app/run_linux.sh

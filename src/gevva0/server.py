@@ -57,7 +57,7 @@ class DecisionRequest(BaseModel):
     confidence_threshold: float | None = Field(None, ge=0.0, le=1.0)
     escalate_threshold: float = Field(DEFAULT_ESCALATE_THRESHOLD, ge=0.0, le=1.0)
     enable_rules: bool = Field(True, description="Enable Tier -1 Heuristic Rule Gateway.")
-    early_exit: bool = Field(False, description="Enable Tier 0 Topological Absorbing Early Exit.")
+    early_exit: bool | None = Field(None, description="Enable Tier 0 Topological Absorbing Early Exit (defaults to True if Tier 0 loaded).")
     force_tier0: bool = Field(False, description="Force Tier 0 evaluation even when manifold has fewer than 50 landmarks.")
     tier0_entropy_threshold: float | None = Field(None, ge=0.0, le=1.0)
     tier0_margin_threshold: float | None = Field(None, ge=0.0, le=1.0)
@@ -816,7 +816,12 @@ def build_app(engine: GemmaDecisionEngine | None = None) -> FastAPI:
                 decide_kwargs["cot_prompt"] = req.cot_prompt
             if req.use_calibrator is not None:
                 decide_kwargs["use_calibrator"] = req.use_calibrator
-            if req.early_exit:
+            from .tier0 import is_tier0_loaded
+            early_exit_opt = req.early_exit
+            if early_exit_opt is None:
+                decision_cfg = (_load_llm_config() or {}).get("decision", {})
+                early_exit_opt = bool(decision_cfg.get("early_exit", is_tier0_loaded()))
+            if early_exit_opt:
                 decide_kwargs["early_exit"] = True
             if req.force_tier0:
                 decide_kwargs["force_tier0"] = True

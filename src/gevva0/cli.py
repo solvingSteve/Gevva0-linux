@@ -148,6 +148,14 @@ def cmd_serve(args: argparse.Namespace) -> int:
             mmproj_path=mmproj_override,
             load_calibration=True,
         )
+    if getattr(args, "tier0", False) or getattr(args, "full_cascade", False):
+        try:
+            from .tier0 import load_tier0_engine
+            tier0_p = getattr(args, "tier0_model", None)
+            load_tier0_engine(model_path=tier0_p)
+            print("[startup] Tier 0 Embedding model loaded successfully for Full Cascade early exit.")
+        except Exception as exc:
+            print(f"[startup] warning: could not load Tier 0 embedding model ({exc})")
     uvicorn.run(create_app(engine), host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -187,6 +195,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=8000)
     p_serve.add_argument("--model", default=None)
+    p_serve.add_argument("--threshold", type=float, default=None, help="CoT threshold (default 0.45)")
+    p_serve.add_argument("--tier0", action="store_true", help="Load Tier 0 Embedding model for Full Cascade")
+    p_serve.add_argument("--full-cascade", action="store_true", help="Alias for --tier0")
+    p_serve.add_argument("--tier0-model", default=None, help="Optional path to Tier 0 embedding model")
     p_serve.add_argument("--no-vision", action="store_true", help="force disable vision projector")
     p_serve.add_argument("--mmproj", default=None, help="path to multimodal projector")
     p_serve.set_defaults(func=cmd_serve)
