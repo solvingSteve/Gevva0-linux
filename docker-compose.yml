@@ -1,0 +1,23 @@
+services:
+  gevva0:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gevva0-linux:latest
+    container_name: gevva0-linux-bench
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - C:\code\gevva0\models:/app/models:ro
+    environment:
+      - THRESHOLD=0.45
+      - GEVVA0_MODEL=models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
+      - GEVVA0_MMPROJ=models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL/mmproj-BF16.gguf
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

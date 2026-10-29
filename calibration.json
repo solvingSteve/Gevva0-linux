@@ -1,0 +1,16 @@
+{
+  "temperature": 4.1451,
+  "cot_threshold": 0.45,
+  "metadata": {
+    "model_id": "gemma-4-26B-A4B-it-qat-UD-Q4_K_XL",
+    "quant": "qat-UD-Q4_K_XL",
+    "empirical_T": 4.1451,
+    "cot_threshold": 0.45,
+    "p20": 0.7761,
+    "p25": 0.8678,
+    "median": 0.9125,
+    "calibrated_brier": 0.1602,
+    "calibrated_ece": 0.114,
+    "fitted_on": "benchmarks/calibration_slice_100.json (Decision Index slice: MMLU-Pro, When2Call, BBH boolean_expressions; zero JevBench contamination)"
+  }
+}
