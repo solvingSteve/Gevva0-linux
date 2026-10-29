@@ -62,11 +62,18 @@ models/
 * **Multimodal Projector (Vision):**
   * File: `mmproj-BF16.gguf`
   * Size: `1,194,828,256 bytes`
-* **Tier 0 Embedding Model:** `google/embeddinggemma-2` (740M params, 768D vector space)
-  * File: `models/embeddings/embeddinggemma-2-onnx/model.onnx`
-  * SHA256: `bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3`
-  * File: `models/embeddings/embeddinggemma-2-onnx/model.onnx_data`
-  * SHA256: `9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2`
+* **Tier 0 Embedding Model:** Official Hugging Face release [`onnx-community/embeddinggemma-2-ONNX`](https://huggingface.co/onnx-community/embeddinggemma-2-ONNX)
+  * Upstream Model: `google/embeddinggemma-2` (740M params, 768D vector space)
+  * Hugging Face Repository: [https://huggingface.co/onnx-community/embeddinggemma-2-ONNX](https://huggingface.co/onnx-community/embeddinggemma-2-ONNX)
+  * ONNX Subtree: [https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/tree/main/onnx](https://huggingface.co/onnx-community/embeddinggemma-2-ONNX/tree/main/onnx)
+  * Git Clone Command:
+    ```bash
+    git clone https://huggingface.co/onnx-community/embeddinggemma-2-ONNX models/embeddings/embeddinggemma-2-onnx
+    ```
+  * File: `model.onnx` (located either in `models/embeddings/embeddinggemma-2-onnx/model.onnx` or `.../onnx/model.onnx`)
+    * SHA256: `bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3`
+  * File: `model.onnx_data`
+    * SHA256: `9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2`
 
 ---
 
@@ -104,6 +111,10 @@ python -m gevva0.cli serve \
 ## 5. Endpoints & Request Shapes for the Full Cascade
 
 The server provides two interchangeable endpoints. **Both routes execute the complete 4-tier cascade when `--tier0` / `--full-cascade` is loaded**:
+
+> **Note on `early_exit` and Tier -1 (Routing Rules):**  
+> In `src/gevva0/engine.py`, the `early_exit` parameter specifically controls **Tier 0** (EmbeddingGemma-2 Absorbing Markov Chains), NOT Tier -1.  
+> Tier -1 (Static Rules in `routing_rules.json`) has **0 `DIRECT_EXIT` rules**—it contains solely `FORCE_COT` and `SKIP_TIER0` routing constraints. Hence, **no benchmark questions are ever answered by static heuristics**; 100% of verdicts are evaluated by neural models. When `--full-cascade` / `--tier0` is loaded, `early_exit` is set to `True`, allowing Tier 0 Absorbing Markov Chains to exit early on confident domain queries (~16–25 ms, 100% precision).
 
 ### Route A: Canonical JevBench Wire Format (`POST /decide` or `POST /v1/systemone`)
 If your harness uses the TypeSafe-style dict wire format:

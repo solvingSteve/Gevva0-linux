@@ -177,7 +177,12 @@ class Tier0Engine:
 
         p_model = Path(self.model_path)
         self.is_onnx = (
-            (p_model.is_dir() and ((p_model / "model.onnx").is_file() or list(p_model.glob("*.onnx"))))
+            (p_model.is_dir() and (
+                (p_model / "model.onnx").is_file()
+                or (p_model / "onnx" / "model.onnx").is_file()
+                or list(p_model.glob("*.onnx"))
+                or list(p_model.glob("onnx/*.onnx"))
+            ))
             or (p_model.is_file() and p_model.suffix.lower() == ".onnx")
             or "onnx" in str(self.model_path).lower()
         )
@@ -207,12 +212,22 @@ class Tier0Engine:
             try:
                 import onnxruntime as ort
                 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if self.device == "cuda" else ["CPUExecutionProvider"]
-                model_onnx_path = (p_model / "model.onnx") if p_model.is_dir() else p_model
+                if p_model.is_dir():
+                    if (p_model / "model.onnx").is_file():
+                        model_onnx_path = p_model / "model.onnx"
+                    elif (p_model / "onnx" / "model.onnx").is_file():
+                        model_onnx_path = p_model / "onnx" / "model.onnx"
+                    else:
+                        onnx_cands = list(p_model.glob("*.onnx")) or list(p_model.glob("onnx/*.onnx"))
+                        model_onnx_path = onnx_cands[0] if onnx_cands else (p_model / "model.onnx")
+                else:
+                    model_onnx_path = p_model
+
                 sess_opts = ort.SessionOptions()
                 sess_opts.log_severity_level = 3
                 self.onnx_text_session = ort.InferenceSession(str(model_onnx_path), sess_options=sess_opts, providers=providers)
 
-                base_dir = p_model.parent if p_model.is_file() else p_model
+                base_dir = model_onnx_path.parent
                 v_path = base_dir / "vision_encoder.onnx"
                 if self.enable_vision and v_path.is_file():
                     self.onnx_vision_session = ort.InferenceSession(str(v_path), sess_options=sess_opts, providers=providers)
@@ -234,7 +249,11 @@ class Tier0Engine:
                 # Locate local processor / tokenizer
                 search_dirs = [
                     base_dir,
+                    base_dir.parent,
+                    p_model,
+                    p_model.parent,
                     PROJECT_ROOT / "models" / "embeddings" / "embeddinggemma-2",
+                    PROJECT_ROOT / "models" / "embeddings" / "embeddinggemma-2-onnx",
                     PROJECT_ROOT / "models" / "embeddinggemma-2-repo",
                     PROJECT_ROOT / "embeddinggemma-2-repo",
                     Path("C:/code/embeddinggemma-2"),
