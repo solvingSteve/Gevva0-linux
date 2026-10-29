@@ -14,6 +14,8 @@ cd "${SCRIPT_DIR}"
 
 export PYTHONPATH="${SCRIPT_DIR}/src:${PYTHONPATH:-}"
 export PYTHONUNBUFFERED=1
+export GEVVA0_CALIBRATION="${GEVVA0_CALIBRATION:-${SCRIPT_DIR}/calibration.json}"
+export GEVVA0_NO_AUTO_CALIBRATE=1
 
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
@@ -107,5 +109,7 @@ exec python -m gevva0.cli serve \
   --port "${PORT}" \
   --model "${MODEL}" \
   --threshold "${THRESHOLD}" \
+  --calibration "${GEVVA0_CALIBRATION}" \
+  --no-auto-calibrate \
   "${MMPROJ_ARG[@]}" \
   "${TIER0_ARG[@]}"

@@ -2,6 +2,7 @@ from __future__ import annotations
 import base64
 import ctypes
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -420,7 +421,11 @@ class GemmaDecisionEngine:
         kwargs.update(kwargs_override)
         engine = cls(**kwargs)
 
-        if load_calibration and calibrator is None and auto_calibrate_if_missing:
+        no_auto_cal = (
+            not auto_calibrate_if_missing
+            or os.environ.get("GEVVA0_NO_AUTO_CALIBRATE", "").lower() in ("1", "true", "yes")
+        )
+        if load_calibration and calibrator is None and not no_auto_cal:
             target_out = resolve_calibration_path(resolved_model_path)
             print(f"[engine] Calibration JSON not found for {engine.model_name}. Running calibration on Decision Index slice...")
             try:

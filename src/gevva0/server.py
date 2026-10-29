@@ -630,7 +630,9 @@ def build_app(engine: GemmaDecisionEngine | None = None) -> FastAPI:
     # ── Decision endpoint ─────────────────────────────────────
 
     @app.post("/v1/decide", response_model=DecisionResponse)
+    @app.post("/v1/decision", response_model=DecisionResponse)
     @app.post("/api/decide", response_model=DecisionResponse)
+    @app.post("/api/decision", response_model=DecisionResponse)
     def make_decision(req: DecisionRequest) -> DecisionResponse:
         eng = _engine()
         options_dict: dict[str, str]
@@ -1102,7 +1104,21 @@ def build_app(engine: GemmaDecisionEngine | None = None) -> FastAPI:
             opt_dict = {letters[i]: descs[i] for i in range(len(letters))}
             full_context = f"{state}\n\nQuestion: {instructions}" if instructions else state
 
-            res = eng.decide(context=full_context, options=opt_dict)
+            from .tier0 import is_tier0_loaded
+            run_early_exit = is_tier0_loaded()
+            decision_cfg = (_load_llm_config() or {}).get("decision", {})
+            cot_th = float(decision_cfg.get("cot_threshold", getattr(getattr(eng, "calibrator", None), "cot_threshold", 0.45)))
+            max_cot = int(decision_cfg.get("cot_max_tokens", 256))
+
+            res = eng.decide(
+                context=full_context,
+                options=opt_dict,
+                early_exit=run_early_exit,
+                enable_rules=True,
+                cot_threshold=cot_th,
+                max_cot_tokens=max_cot,
+                cot_temp=0.0,
+            )
             let_probs = getattr(res, "letter_probabilities", None) or {}
             last_latency_ms = getattr(res, "latency_ms", 0.0)
 

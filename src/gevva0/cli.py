@@ -148,6 +148,14 @@ def cmd_serve(args: argparse.Namespace) -> int:
             mmproj_path=mmproj_override,
             load_calibration=True,
         )
+    if getattr(args, "calibration", None):
+        cal_path = Path(args.calibration).resolve()
+        import os
+        os.environ["GEVVA0_CALIBRATION"] = str(cal_path)
+    if getattr(args, "no_auto_calibrate", False):
+        import os
+        os.environ["GEVVA0_NO_AUTO_CALIBRATE"] = "1"
+
     if getattr(args, "tier0", False) or getattr(args, "full_cascade", False):
         try:
             from .tier0 import load_tier0_engine
@@ -199,6 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--tier0", action="store_true", help="Load Tier 0 Embedding model for Full Cascade")
     p_serve.add_argument("--full-cascade", action="store_true", help="Alias for --tier0")
     p_serve.add_argument("--tier0-model", default=None, help="Optional path to Tier 0 embedding model")
+    p_serve.add_argument("--calibration", default=None, help="Path to fitted calibration.json file")
+    p_serve.add_argument("--no-auto-calibrate", action="store_true", help="Disable auto-calibration on startup")
     p_serve.add_argument("--no-vision", action="store_true", help="force disable vision projector")
     p_serve.add_argument("--mmproj", default=None, help="path to multimodal projector")
     p_serve.set_defaults(func=cmd_serve)

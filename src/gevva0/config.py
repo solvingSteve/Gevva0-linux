@@ -165,10 +165,16 @@ def find_model_calibration_path(model_input: str | Path | None = None) -> Path |
     else:
         resolved_model = DEFAULT_MODEL_PATH
 
+    # 1. Check root calibration.json and standard default paths first
+    root_cal = PROJECT_ROOT / "calibration.json"
+    if root_cal.is_file():
+        return root_cal
+
     if resolved_model and resolved_model.exists():
         model_dir = resolved_model.parent
         stem = resolved_model.stem
         candidates = [
+            root_cal,
             model_dir / "model-calibration.json",
             model_dir / "model-calibration",
             model_dir / ".calibration.json",
@@ -631,13 +637,20 @@ def resolve_tier0_model_path(model_input: str | Path | None = None) -> str:
         return scanned[0]["full_path"]
 
     # Check default locations
-    repo_local = PROJECT_ROOT / "embeddinggemma-2-repo"
-    if repo_local.exists():
-        return str(repo_local.resolve())
-    models_local = PROJECT_ROOT / "models" / "embeddinggemma-2-repo"
-    if models_local.exists():
-        return str(models_local.resolve())
-    return "google/embeddinggemma-300m"
+    for cand in [
+        PROJECT_ROOT / "models" / "embeddings" / "embeddinggemma-2-onnx",
+        PROJECT_ROOT / "embeddings" / "embeddinggemma-2-onnx",
+        PROJECT_ROOT / "models" / "embeddinggemma-2-onnx",
+        PROJECT_ROOT / "embeddinggemma-2-repo",
+        PROJECT_ROOT / "models" / "embeddinggemma-2-repo",
+    ]:
+        if cand.exists():
+            return str(cand.resolve())
+
+    raise FileNotFoundError(
+        "Tier 0 embedding model not found. Expected ONNX model in 'models/embeddings/embeddinggemma-2-onnx'. "
+        "Silent fallback to google/embeddinggemma-300m is disabled."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -751,9 +764,12 @@ def update_config_calibration(cal_data: dict | Any) -> dict:
     if cot_th is not None:
         cfg["decision"]["cot_threshold"] = float(cot_th)
 
-    with open(_LLM_CONFIG_PATH, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, indent=2, ensure_ascii=False)
-        fh.write("\n")
+    try:
+        with open(_LLM_CONFIG_PATH, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+    except (OSError, PermissionError) as exc:
+        pass  # Read-only filesystem mount
     return cfg
 
 

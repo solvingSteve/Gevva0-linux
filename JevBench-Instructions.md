@@ -1,6 +1,6 @@
 # JevBench Measurement & Benchmark Guide for Gevva0 (Linux / CUDA)
 
-This guide provides complete instructions for faithfully measuring **Gevva0** on Linux machines with NVIDIA CUDA GPUs.
+This guide provides complete instructions and exact configuration parameters for measuring **Gevva0** faithfully on Linux machines with NVIDIA CUDA GPUs.
 
 ---
 
@@ -13,7 +13,7 @@ We request measuring Gevva0 under two official configurations on the JevBench le
 | **Gevva0 (4-Tier Cascade)**<br/>*(Primary Submission)* | **Tier -1 + Tier 0 + Tier 1 + Tier 2** | `Gemma 4 26B-A4B MoE` (LLM)<br/>`EmbeddingGemma-2` (ONNX) | **#1 Intelligence (84.62) & Overall Accuracy (89.17%).**<br/>• Absorbing Markov Chains exit early on trivial cases (~16–25 ms)<br/>• Hot-KV Bounded CoT rescues hard temporal/arithmetic tasks (79.28% hard accuracy)<br/>• Median latency (`p50`): **44.0 ms** |
 | **Gevva0 (Tier 1 Fast-Path)**<br/>*(Zero-Token Baseline)* | **Tier 1 Only** | `Gemma 4 26B-A4B MoE` (LLM) | **#1 Composite Score (87.34 raw / 81.40 GPU-adjusted).**<br/>• **0 generated tokens** (pure logit readout, zero token cost)<br/>• Median latency (`p50`): **37.5 ms** |
 
-> **If your protocol only allows measuring a single configuration:**
+> **If your protocol only allows measuring a single configuration:**  
 > Please measure **Gevva0 (4-Tier Cascade)** (`./run_linux.sh --full-cascade`). It represents the complete cascading architecture and shows how local geometric routing combined with hot-KV verification outperforms frontier reasoning models on hard multi-hop tasks.
 
 ---
@@ -27,8 +27,8 @@ We request measuring Gevva0 under two official configurations on the JevBench le
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/gevva0-linux.git
-cd gevva0-linux
+git clone https://github.com/solvingSteve/Gevva0-linux.git
+cd Gevva0-linux
 
 # Install dependencies (fetches pre-built CUDA wheels for llama-cpp-python)
 pip install -r requirements.txt
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 
 ---
 
-## 3. Model Weights Directory Structure
+## 3. Model Weights & Checksums
 
 Ensure model weights are placed or symlinked into the `models/` directory:
 
@@ -54,112 +54,151 @@ models/
         └── tokenizer.model
 ```
 
-*Quick symlink if weights reside elsewhere:*
-```bash
-ln -s /path/to/downloaded/models/* models/
-```
+### Exact Artifact Hashes & Upstream Parent:
+* **LLM Backbone:** Quantized from official `google/gemma-4-26b-a4b-it`
+  * File: `gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf`
+  * Size: `14,249,047,104 bytes`
+  * SHA256: `a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891`
+* **Multimodal Projector (Vision):**
+  * File: `mmproj-BF16.gguf`
+  * Size: `1,194,828,256 bytes`
+* **Tier 0 Embedding Model:** `google/embeddinggemma-2` (740M params, 768D vector space)
+  * File: `models/embeddings/embeddinggemma-2-onnx/model.onnx`
+  * SHA256: `bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3`
+  * File: `models/embeddings/embeddinggemma-2-onnx/model.onnx_data`
+  * SHA256: `9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2`
 
 ---
 
-## 4. Launching the Gateway
+## 4. Serving the Gateway (Read-Only Safe, No Auto-Fit)
 
-### Option A: 4-Tier Cascade (Primary Submission)
-Launches the full cascading pipeline (Rules → Markov Router → Fast-Path → Hot-KV CoT):
+To ensure completely deterministic measurement on read-only mounted filesystems with **auto-fitting strictly disabled**:
 
 ```bash
+# 1-Line Turn-Key Launcher (Full 4-Tier Cascade)
 ./run_linux.sh --full-cascade
 ```
 
-*Equivalent explicit Python command:*
+### Explicit CLI Command & Environment Flags:
 ```bash
 python -m gevva0.cli serve \
-  --host 0.0.0.0 --port 8000 \
+  --host 0.0.0.0 \
+  --port 8000 \
   --model models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf \
   --mmproj models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL/mmproj-BF16.gguf \
   --threshold 0.45 \
-  --tier0
+  --tier0 \
+  --calibration calibration.json \
+  --no-auto-calibrate
 ```
+
+* **Read-Only Guarantee:** The server loads [`calibration.json`](calibration.json) ($T = 4.1451$, `cot_threshold = 0.45`) in memory. All disk-write attempts to `llm_config.json` are suppressed so the server starts cleanly on read-only volume mounts without exceptions.
+* **Environment Variable Alternative:**
+  ```bash
+  export GEVVA0_CALIBRATION=calibration.json
+  export GEVVA0_NO_AUTO_CALIBRATE=1
+  ```
 
 ---
 
-### Option B: Tier 1 Fast-Path Only (Zero-Token Baseline)
-Runs pure logit extraction with zero autoregressive token generation:
+## 5. Endpoints & Request Shapes for the Full Cascade
+
+The server provides two interchangeable endpoints. **Both routes execute the complete 4-tier cascade when `--tier0` / `--full-cascade` is loaded**:
+
+### Route A: Canonical JevBench Wire Format (`POST /decide` or `POST /v1/systemone`)
+If your harness uses the TypeSafe-style dict wire format:
 
 ```bash
-python -m gevva0.cli serve \
-  --host 0.0.0.0 --port 8000 \
-  --model models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf \
-  --mmproj models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL/mmproj-BF16.gguf \
-  --threshold 0.0
-```
-
----
-
-### Option C: Minimum Tier 1 + Tier 2 (LLM Only, No ONNX Embedding)
-If you wish to evaluate the cascade without mounting the ONNX embedding model:
-
-```bash
-./run_linux.sh
-```
-
----
-
-## 5. Decision API Specification
-
-Send decision requests via HTTP POST to `http://127.0.0.1:8000/v1/decision`:
-
-```bash
-curl -X POST http://127.0.0.1:8000/v1/decision \
+curl -X POST http://127.0.0.1:8000/decide \
   -H "Content-Type: application/json" \
   -d '{
-    "context": "Procurement Policy 4.1: Purchases >$1,500 require VP sign-off. Developer tooling pre-authorized up to $10,000 under platform budget. Scenario: Annual $4,200 profiling tool requested under platform budget.\n\nQuestion: What approval level is required?",
-    "options": {
-      "A": "Formal VP signature and secondary review",
-      "B": "CFO escalation",
-      "C": "Engineering Manager approval under platform budget",
-      "D": "Automatic rejection"
+    "state": "Customer Message: My shipment was damaged in transit and I need a replacement.",
+    "questions": {
+      "q": {
+        "type": "choice",
+        "instructions": "Determine user intent",
+        "criteria": {
+          "track_order": "Track package delivery",
+          "report_damage": "Damaged or broken shipment",
+          "billing_dispute": "Billing and payment questions"
+        }
+      }
     }
   }'
 ```
 
-### JSON Response Example:
+**JSON Response:**
 ```json
 {
-  "test_id": null,
-  "decision": "C",
-  "decision_text": "Engineering Manager approval under platform budget",
-  "confidence": 0.8921,
-  "latency_ms": 37.45,
-  "duration_ms": 37.45,
-  "candidate_letter": "C",
-  "probabilities": {
-    "A": 0.0382,
-    "B": 0.0094,
-    "C": 0.8921,
-    "D": 0.0603
+  "model": "gemma-4-26B-A4B-it-qat-UD-Q4_K_XL",
+  "answers": {
+    "q": {
+      "id": "q",
+      "type": "choice",
+      "probabilities": {
+        "track_order": 0.0121,
+        "report_damage": 0.9743,
+        "billing_dispute": 0.0136
+      },
+      "choice": "report_damage"
+    }
   },
-  "tier": 1,
-  "mode": "fast_path",
-  "cot_scratchpad": null
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 1
+  }
 }
 ```
 
 ---
 
-## 6. Answers to Technical Measurement Questions
+### Route B: Gevva0 Direct Format (`POST /v1/decide` or `POST /v1/decision`)
+If your adapter sends standard `{context, options}` objects:
 
-### 1. Linux Entry Point & Sparse Head Patch
-* **Functional Equivalence:** The $K=64$ sparse micro-head is an in-memory GEMV output projection optimization (~5 ms latency savings on Windows). It does not alter model weights, representations, prompt ingest, KV caching, or candidate logit values.
-* **Linux Fallback:** On Linux using standard CUDA wheels, Gevva0 automatically falls back to native full-vocabulary extraction (`_extract_candidate_logits_from_ptr`). The choice predictions, calibrated confidence values, and accuracy are **100% bit-exact and mathematically identical**.
+```bash
+curl -X POST http://127.0.0.1:8000/v1/decide \
+  -H "Content-Type: application/json" \
+  -d '{
+    "context": "Customer Message: My shipment was damaged in transit and I need a replacement.",
+    "options": {
+      "A": "track_order: Track package delivery",
+      "B": "report_damage: Damaged or broken shipment",
+      "C": "billing_dispute: Billing and payment questions"
+    }
+  }'
+```
 
-### 2. Evaluated Mode & Hyperparameters
-* **Cyclic Debiasing:** `cyclic_debias = False`. Shipped configuration evaluates single-pass candidate extraction with leading space / no-space marginalization (`logsumexp(logit(" X"), logit("X"))`).
-* **Routing Rules:** `enable_rules = True`. All active rules in `RoutingRules/routing_rules.json` solely route complex queries (`FORCE_COT` or `SKIP_TIER0`). **Zero `DIRECT_EXIT` rules are active during benchmarks**, ensuring 100% of decisions are produced by neural inference.
-* **CoT Escalation Threshold:** **`0.45`** (calibrated operating point). At $C < 0.45$, exactly ~17.1% of complex traffic escalates to Tier 2 CoT (matching published reports). Setting this to 0.85 would over-escalate and inflate token pricing.
-* **CoT Generation Budget:** `max_cot_tokens = 256`, `cot_temp = 0.0`.
-* **Hot-KV Cache Reuse:** `reuse_kv = True` (CoT continues directly from the KV cache filled during Tier 1 prefill; zero duplicate context processing).
+**JSON Response:**
+```json
+{
+  "decision": "B",
+  "decision_text": "report_damage: Damaged or broken shipment",
+  "confidence": 0.9743,
+  "tier": 0,
+  "mode": "tier0_early_exit",
+  "duration_ms": 17.82,
+  "probabilities": {
+    "track_order: Track package delivery": 0.0121,
+    "report_damage: Damaged or broken shipment": 0.9743,
+    "billing_dispute: Billing and payment questions": 0.0136
+  }
+}
+```
 
-### 3. Startup Calibration Data
-* **Committed File:** The repository includes [`calibration.json`](file:///c:/code/demos/gevva0-linux/calibration.json) with fitted parameters ($T = 4.1451$, `cot_threshold = 0.45`). The server loads this file instantly with zero startup auto-calibration delay.
-* **Dataset Used for Fitting:** Fitted exclusively on [`benchmarks/calibration_slice_100.json`](file:///c:/code/demos/gevva0-linux/benchmarks/calibration_slice_100.json), a 125-item slice drawn from **Decision Index** (50 MMLU-Pro, 50 When2Call, 25 BBH boolean expressions).
-* **Zero Contamination:** **No JevBench items were used for calibration.** JevBench items are strictly held out and unseen.
+*(Note: Both `/v1/decide` and `/v1/decision` accept either JSON schema interchangeably).*
+
+---
+
+## 6. Calibration Fitting Dataset & Zero-Contamination Verification
+
+* **Committed Slice File:** [`benchmarks/calibration_slice_100.json`](benchmarks/calibration_slice_100.json) (and `.jsonl`)
+  * SHA256: `ec4b47398afbedc04ab90f5adfcc60aad05f5fca22da262a5235f1d7173bfd87`
+  * Exactly **125 items**:
+    * **50 items from MMLU-Pro** (stratified across 14 academic and domain tracks)
+    * **50 items from When2Call MCQ** (tool-calling and unanswerable edge cases)
+    * **25 items from BIG-bench Hard (BBH)** (`boolean_expressions.json`)
+* **Zero JevBench Contamination:**  
+  **No JevBench items were used during calibration.** The JevBench evaluation battery (easy, standard, hard, vision) is strictly held out and unseen.
+* **Fitted Values:**
+  * Platt Scaling Temperature: **$T = 4.1451$**
+  * CoT Trigger Threshold: **`0.45`** (at this threshold, exactly ~17.1% of complex traffic escalates to Tier 2 CoT).
