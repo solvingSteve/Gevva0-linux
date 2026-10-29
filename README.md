@@ -1,3 +1,4 @@
+
 # Gevva0-linux: Cascading Decision Engine
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -14,6 +15,9 @@ Instead of slow, brittle autoregressive LLM text generation, G0 executes decisio
 
 Get deterministic verdicts, well-calibrated confidence scores, and verbatim audit trails in **sub-3ms (T0)** to **31.5–37.5ms (T1)** on CUDA GPUs with **zero cloud API cost**.
 
+> 📋 **JevBench Evaluators:** For step-by-step measurement protocols, 1-line launch commands, and official configuration specs, see **[JevBench-Instructions.md](JevBench-Instructions.md)**.
+
+<img width="1706" height="966" alt="Gevva0" src="https://github.com/user-attachments/assets/fad96807-ceb2-410c-887b-923d51c70a12" />
 ---
 
 ## Quickstart: Linux & Docker
